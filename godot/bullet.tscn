@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3 uid="uid://ch838adds3s6"]
+
+[ext_resource type="PackedScene" uid="uid://c0hamf5dstk51" path="res://assets/models/bullet/bullet.gltf" id="1_v7oki"]
+[ext_resource type="Script" uid="uid://b1cvl88rifdr1" path="res://bullet.gd" id="1_v8qja"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_v8qja"]
+radius = 1.003
+
+[node name="Bullet" type="Area3D"]
+script = ExtResource("1_v8qja")
+
+[node name="Bullet" parent="." instance=ExtResource("1_v7oki")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_v8qja")
+
+[connection signal="area_entered" from="." to="." method="_on_area_entered"]

@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://bw7mupunijbv"]
+
+[ext_resource type="PackedScene" uid="uid://4r0ucv8eaqmp" path="res://assets/models/terrain/terrain.gltf" id="1_mgpfe"]
+[ext_resource type="Script" uid="uid://d30nwt12ks6x5" path="res://land.gd" id="1_nfuxm"]
+[ext_resource type="PackedScene" uid="uid://d10oiv6424wna" path="res://player.tscn" id="2_pl1wv"]
+[ext_resource type="Script" uid="uid://b2c533pllqq4f" path="res://enemies_manager.gd" id="3_pl1wv"]
+[ext_resource type="PackedScene" uid="uid://bovxsxxtpbqa7" path="res://top_enemy.tscn" id="4_asfs6"]
+[ext_resource type="PackedScene" uid="uid://d3ube3ornqeki" path="res://side_enemy.tscn" id="4_iooh7"]
+
+[node name="Land" type="Node" unique_id=1974075966]
+script = ExtResource("1_nfuxm")
+land_path = NodePath("terrain")
+second_land_path = NodePath("terrain2")
+camera_path = NodePath("Camera3D")
+player_path = NodePath("Player")
+
+[node name="terrain" parent="." unique_id=709977312 instance=ExtResource("1_mgpfe")]
+transform = Transform3D(-0.000174846, 0, -4000, 0, 4000, 0, 4000, 0, -0.000174846, 0, -800, 0)
+
+[node name="Player" parent="." unique_id=311153199 instance=ExtResource("2_pl1wv")]
+transform = Transform3D(-20, 0, 1.74846e-06, 0, 20, 0, -1.74846e-06, 0, -20, 0, 0, 0)
+
+[node name="terrain2" parent="." unique_id=1315059617 instance=ExtResource("1_mgpfe")]
+transform = Transform3D(-0.000174846, 0, -4000, 0, 4000, 0, 4000, 0, -0.000174846, 0, -800, -32000)
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=2143869692]
+transform = Transform3D(20, 0, 0, 0, -8.74228e-07, 20, 0, -20, -8.74228e-07, 0, 1000, 0)
+projection = 1
+size = 1400.0
+far = 40000.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=203242349]
+transform = Transform3D(1, 0, 0, 0, -0.25038, 0.968148, 0, -0.968148, -0.25038, 0, 0, 0)
+
+[node name="EnemiesManager" type="Node" parent="." unique_id=384161907]
+script = ExtResource("3_pl1wv")
+top_enemy_scene = ExtResource("4_asfs6")
+side_enemy_scene = ExtResource("4_iooh7")
+spawn_timer_path = NodePath("Timer")
+benchmark_timer_path = NodePath("Timer2")
+
+[node name="Timer" type="Timer" parent="EnemiesManager" unique_id=1295290253]
+wait_time = 2.0
+autostart = true
+
+[node name="Timer2" type="Timer" parent="EnemiesManager" unique_id=1007081857]
+wait_time = 10.0
+autostart = true
+
+[node name="PerfMonitor" type="PerfMonitor" parent="." unique_id=1255922840]
+wait_time = 0.25
+autostart = true
