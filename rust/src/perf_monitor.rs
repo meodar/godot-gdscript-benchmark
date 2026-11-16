@@ -5,11 +5,29 @@ use godot::{
 };
 use nvml_wrapper::Nvml;
 use std::io::Write;
+use std::time::{Duration, Instant};
 use std::{
     fs::{File, OpenOptions},
     path::PathBuf,
 };
 use sysinfo::{Pid, ProcessesToUpdate, System};
+
+#[cfg(windows)]
+unsafe extern "system" {
+    fn GetCurrentProcessorNumber() -> u32;
+}
+
+/// Номер логического ядра, на котором сейчас выполняется поток
+fn current_core() -> i64 {
+    #[cfg(windows)]
+    {
+        i64::from(unsafe { GetCurrentProcessorNumber() })
+    }
+    #[cfg(not(windows))]
+    {
+        -1
+    }
+}
 
 #[derive(GodotClass)]
 #[class(base=Timer)]
@@ -19,13 +37,37 @@ pub struct PerfMonitor {
     nvml: Option<Nvml>,
     csv_file: Option<File>,
     delta_time: f64,
+    tick_start: Option<Instant>,
+    tick_time: Duration,
+    ticks: u32,
+    frames: u32,
+    core: i64,
 
     #[base]
     base: Base<Timer>,
 }
 
 impl PerfMonitor {
+    fn on_physics_frame(&mut self) {
+        self.tick_start = Some(Instant::now());
+    }
+
     fn on_timeout(perf_monitor: &mut PerfMonitor) {
+        let physics_ms = if perf_monitor.ticks > 0 {
+            perf_monitor.tick_time.as_secs_f64() * 1000.0 / f64::from(perf_monitor.ticks)
+        } else {
+            0.0
+        };
+        let steps_per_frame = if perf_monitor.frames > 0 {
+            f64::from(perf_monitor.ticks) / f64::from(perf_monitor.frames)
+        } else {
+            0.0
+        };
+        let core = perf_monitor.core;
+        perf_monitor.tick_time = Duration::ZERO;
+        perf_monitor.ticks = 0;
+        perf_monitor.frames = 0;
+
         let mut cpu = 0.0;
         let mut ram = 0.0;
         let mut gpu = 0;
@@ -64,8 +106,16 @@ impl PerfMonitor {
         if let Some(file) = &mut perf_monitor.csv_file {
             writeln!(
                 file,
-                "{},{:.2},{:.2},{},{},{}",
-                perf_monitor.delta_time, cpu, ram, gpu, gpu_mem, fps
+                "{},{:.2},{:.2},{},{},{},{:.3},{:.2},{}",
+                perf_monitor.delta_time,
+                cpu,
+                ram,
+                gpu,
+                gpu_mem,
+                fps,
+                physics_ms,
+                steps_per_frame,
+                core
             )
             .expect("Failed to write to CSV");
         }
@@ -82,6 +132,11 @@ impl ITimer for PerfMonitor {
             nvml: None,
             csv_file: None,
             delta_time: 0.0,
+            tick_start: None,
+            tick_time: Duration::ZERO,
+            ticks: 0,
+            frames: 0,
+            core: -1,
         }
     }
 
@@ -97,7 +152,11 @@ impl ITimer for PerfMonitor {
             .open(&csv_path)
             .expect("Failed to create CSV file");
 
-        writeln!(file, "second,cpu_percent,ram_mib,gpu_percent,gpu_mem,fps").unwrap();
+        writeln!(
+            file,
+            "second,cpu_percent,ram_mib,gpu_percent,gpu_mem,fps,physics_ms,physics_steps_per_frame,core"
+        )
+        .unwrap();
 
         self.csv_file = Some(file);
 
@@ -115,9 +174,25 @@ impl ITimer for PerfMonitor {
             .signals()
             .timeout()
             .connect_other(self, Self::on_timeout);
+
+        self.base_mut().set_physics_process_priority(i32::MAX);
+        self.base()
+            .get_tree()
+            .signals()
+            .physics_frame()
+            .connect_other(self, Self::on_physics_frame);
+    }
+
+    fn process(&mut self, _delta: f64) {
+        self.frames += 1;
     }
 
     fn physics_process(&mut self, delta: f64) {
-        self.delta_time += delta
+        self.delta_time += delta;
+        if let Some(start) = self.tick_start.take() {
+            self.tick_time += start.elapsed();
+            self.ticks += 1;
+            self.core = current_core();
+        }
     }
 }
